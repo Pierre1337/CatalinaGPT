@@ -1,3 +1,5 @@
 node_modules
 .env
 recordings/*
+context.js
+last-analisys*.txt

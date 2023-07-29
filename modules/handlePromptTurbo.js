@@ -1,10 +1,18 @@
 const { Configuration, OpenAIApi } = require('openai');
 const handleVoicePrompt = require('./handleVoicePrompt');
 const botcontext = require('../context');
+const askChatbot = require('./chatbot');
+const fetch = require('node-fetch');
 
 const configuration = new Configuration({
 	apiKey: process.env.OPENAI_TOKEN
 });
+
+async function getKanyeQuote() {
+    let response = await fetch('https://api.kanye.rest');
+    let data = await response.json();
+    return data.quote;
+}
 
 const openai = new OpenAIApi(configuration);
 
@@ -26,13 +34,25 @@ async function handlePrompt(message) {
 	}
 
 	let response = await generateTextPrompt(message);
+
 	if (response) {
-		let messageChannel = client.channels.cache.get(message.channelId);
-		await messageChannel.sendTyping();
-		await delay(parseInt(response.length * 25));
-		message.reply(response);
+	    let messageChannel = client.channels.cache.get(message.channelId);
+	    await messageChannel.sendTyping();
+	    await delay(parseInt(response.length * 25));
+	    message.reply(response);
 	} else {
-		message.reply("Sorry, I cant speak. I don't feel ok right now.");
+	    let fallbackResponse = await askChatbot(message.content);
+	    if (fallbackResponse) {
+	        let messageChannel = client.channels.cache.get(message.channelId);
+	        await messageChannel.sendTyping();
+	        await delay(parseInt(fallbackResponse.length * 25));
+	        message.reply(fallbackResponse);
+	    } else {
+                // Get the Kanye quote
+                let kanyeQuote = await getKanyeQuote();
+		await delay(parseInt(kanyeQuote.length * 25));
+	        message.reply(kanyeQuote);
+	    }
 	}
 }
 
@@ -81,7 +101,7 @@ Keep messages short.`;
 			messages.push({ role: 'user', content: `${askerUsername}: ${discordMessage.content}` });
 
 			const completion = await openai.createChatCompletion({
-				model: 'gpt-3.5-turbo',
+				model: 'gpt-3.5-turbo-0613',
 				temperature: 0.85,
 				messages: messages
 			});
